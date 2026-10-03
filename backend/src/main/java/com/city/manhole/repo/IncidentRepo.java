@@ -14,5 +14,6 @@ public interface IncidentRepo extends JpaRepository<Incident, Long> {
     List<Incident> findByStatusInOrderByCreatedAtDesc(Collection<String> statuses);
     List<Incident> findByOwnerStatusInOrderByCreatedAtDesc(Collection<String> statuses);
     List<Incident> findAllByOrderByCreatedAtDesc();
+    List<Incident> findByPreviousIncidentId(Long previousIncidentId);
     long countByCodeStartingWith(String prefix);
 }

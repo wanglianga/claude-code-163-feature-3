@@ -55,6 +55,8 @@ public class StatsService {
                 .filter(i -> !Constants.EmergencyStatus.SECURED.equals(i.getEmergencyStatus())).count();
         long pendingOwner = all.stream()
                 .filter(i -> Constants.OwnerStatus.PENDING.equals(i.getOwnerStatus())).count();
+        long recollapse = all.stream()
+                .filter(i -> Boolean.TRUE.equals(i.getRecollapse())).count();
 
         List<RepairOrder> orders = repairOrderRepo.findAll();
         long timeoutOrders = orders.stream().filter(this::isTimeout).count();
@@ -72,6 +74,7 @@ public class StatsService {
         m.put("byDanger", byDanger);
         m.put("pendingEmergency", pendingEmergency);
         m.put("pendingOwner", pendingOwner);
+        m.put("recollapseCount", recollapse);
         m.put("timeoutOrders", timeoutOrders);
         m.put("totalOrders", orders.size());
         m.put("totalCompensation", totalComp);

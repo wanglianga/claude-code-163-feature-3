@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -27,10 +28,20 @@ public class DataSeeder implements CommandLineRunner {
     private final RepairOrderRepo repairOrderRepo;
     private final AcceptanceRepo acceptanceRepo;
     private final CompensationRepo compensationRepo;
+    private final ClaimMaterialRepo materialRepo;
     private final CostAllocationRepo costRepo;
     private final InspectionRouteRepo routeRepo;
     private final HandoverRuleRepo ruleRepo;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+    private static final DateTimeFormatter TF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private static final List<String> MATERIAL_TYPES = List.of(
+            Constants.MaterialType.ACCIDENT_TIME,
+            Constants.MaterialType.DASHCAM,
+            Constants.MaterialType.POLICE_CERT,
+            Constants.MaterialType.REPAIR_INVOICE,
+            Constants.MaterialType.PLATFORM_STATUS);
 
     private User admin, street, citizen, citizen2, gas, power, telecom, municipal, repair1, repair2, inspector, comp;
 
@@ -89,9 +100,25 @@ public class DataSeeder implements CommandLineRunner {
         RepairOrder o1 = order(i1, gas, repair2, 79, 30, "井室完好，井壁无渗漏", "Φ700 重型球墨铸铁井盖",
                 false, false, null, "更换新井盖并加固井圈", "4500");
         acceptance(i1, true, true, true, true, "PASSED", "修复质量合格", 77);
-        compensation(i1, "车辆损失", "12000", "交警事故认定书、维修发票",
+        CompensationCase c1 = compensation(i1, "车辆损失", "12000", "交警事故认定书、维修发票",
                 "上报后 70 分钟完成围护，权属 1 日内确认，维修 30 小时完成；事故发生于围护前，权属单位承担全责。",
                 Constants.Responsibility.OWNER, 100, 0, "8600", Constants.CompStatus.PAID, 78);
+        // 事故时间：上报后 70 分钟（围护完成前）；维修追踪本已完成，后因 i11 再次塌陷转为 RECOLLAPSED
+        c1.setAccidentTime(i1.getCreatedAt().plusMinutes(70));
+        c1.setTimeRelation(Constants.TimeRelation.AFTER_REPORT_UNSECURED);
+        c1.setPlatformSnapshot("首次上报：" + i1.getCreatedAt().format(TF)
+                + "\n事故时间：" + c1.getAccidentTime().format(TF)
+                + "\n事故发生于上报后、临时围护完成前，未围护时长 1 小时 10 分钟（危险程度高，到场时限 120 分钟）。"
+                + "\n围护完成：" + i1.getCreatedAt().plusMinutes(100).format(TF) + "（事故之后）。"
+                + "\n责任关联：街道值班处置时效。"
+                + "\n权属确认：" + i1.getCreatedAt().plusDays(1).format(TF) + "（事故之后确认）。"
+                + "\n维修工单：" + i1.getCreatedAt().plusDays(1).format(TF) + " 派发，"
+                + i1.getCreatedAt().plusDays(1).plusHours(30).format(TF) + " 完成。");
+        c1.setRepairTrackStatus(Constants.RepairTrack.COMPLETED);
+        c1.setRepairTrackNote("维修验收通过，维修彻底完成");
+        c1.setRepairTrackedAt(LocalDateTime.now().minusDays(77));
+        compensationRepo.save(c1);
+        verifiedMaterials(c1);
         cost(i1, "800", "4500", "8600", Constants.CostStatus.ALLOCATED,
                 "[{\"party\":\"权属单位-城市燃气集团\",\"amount\":13900,\"reason\":\"权属确认，承担应急、维修及赔付全部费用\"}]",
                 "权属清晰，全部由燃气集团承担，街道垫付应急费予以返还。", 76);
@@ -174,6 +201,7 @@ public class DataSeeder implements CommandLineRunner {
         c5.setStatus(Constants.CompStatus.FILED);
         c5.setCreatedAt(i5.getCreatedAt().plusHours(2));
         compensationRepo.save(c5);
+        pendingMaterials(c5);
 
         // 6. 应急完成排查中：中山路井盖松动
         Incident i6 = base("MH20260924-0001", citizen2, "松动", "中山路", "主干道", "中",
@@ -213,9 +241,25 @@ public class DataSeeder implements CommandLineRunner {
         order(i8, telecom, repair1, 55, 40, "井室完好", "Φ650 复合井盖",
                 false, true, "通信", "更换井盖", "2200");
         acceptance(i8, true, true, true, true, "PASSED", "合格", 52);
-        compensation(i8, "人身伤害", "6000", "门诊病历、误工证明",
+        CompensationCase c8 = compensation(i8, "人身伤害", "6000", "门诊病历、误工证明",
                 "围护 130 分钟到场略超时限；权属排查因移交记录缺失一度待定，通信公司认领后维修及时；双方均有责任。",
                 Constants.Responsibility.SHARED, 70, 30, "3200", Constants.CompStatus.APPROVED, 51);
+        // 事故时间：上报后 100 分钟（围护完成前）；维修已验收，追踪彻底完成
+        c8.setAccidentTime(i8.getCreatedAt().plusMinutes(100));
+        c8.setTimeRelation(Constants.TimeRelation.AFTER_REPORT_UNSECURED);
+        c8.setPlatformSnapshot("首次上报：" + i8.getCreatedAt().format(TF)
+                + "\n事故时间：" + c8.getAccidentTime().format(TF)
+                + "\n事故发生于上报后、临时围护完成前，未围护时长 1 小时 40 分钟（危险程度中，到场时限 240 分钟）。"
+                + "\n围护完成：" + i8.getCreatedAt().plusMinutes(160).format(TF) + "（事故之后）。"
+                + "\n责任关联：街道值班处置时效。"
+                + "\n权属确认：" + i8.getCreatedAt().plusDays(4).format(TF) + "（事故之后确认）。"
+                + "\n维修工单：" + i8.getCreatedAt().plusDays(5).format(TF) + " 派发，"
+                + i8.getCreatedAt().plusDays(5).plusHours(40).format(TF) + " 完成。");
+        c8.setRepairTrackStatus(Constants.RepairTrack.COMPLETED);
+        c8.setRepairTrackNote("维修验收通过，维修彻底完成");
+        c8.setRepairTrackedAt(LocalDateTime.now().minusDays(52));
+        compensationRepo.save(c8);
+        verifiedMaterials(c8);
         cost(i8, "450", "2200", "3200", Constants.CostStatus.ALLOCATED,
                 "[{\"party\":\"权属单位-联合通信公司\",\"amount\":4090,\"reason\":\"承担 70% 赔付及全部维修费\"},{\"party\":\"街道\",\"amount\":1760,\"reason\":\"围护略超时，承担 30% 赔付及应急费\"}]",
                 "按 7:3 分摊赔付金，维修费由通信公司承担。", 50);
@@ -258,6 +302,35 @@ public class DataSeeder implements CommandLineRunner {
         cost(i10, "150", "900", "0", Constants.CostStatus.PENDING,
                 "[{\"party\":\"权属单位-市政工程公司\",\"amount\":1050,\"reason\":\"权属已确认，由权属单位承担全部费用\"}]",
                 null, 0);
+
+        // 11. 同一井盖再次塌陷：人民路交口井盖塌陷，车主称轮胎被剐蹭爆胎（追溯 i1 维修责任）
+        Incident i11 = base("MH20261001-0001", citizen2, "塌陷", "人民路与建设大街交口", "主干道", "高",
+                true, "车主称轮胎被塌陷井口剐蹭爆胎，行车记录仪视频已留存，交警证明与维修发票待补", 0);
+        i11.setStatus(Constants.IncidentStatus.REPORTED);
+        i11.setEmergencyStatus(Constants.EmergencyStatus.PENDING);
+        i11.setOwnerStatus(Constants.OwnerStatus.UNCONFIRMED);
+        i11.setRecollapse(true);
+        i11.setPreviousIncidentId(i1.getId());
+        i11.setCreatedAt(LocalDateTime.now().minusHours(3));
+        i11.setUpdatedAt(i11.getCreatedAt());
+        incidentRepo.save(i11);
+        CompensationCase c11 = new CompensationCase();
+        c11.setIncidentId(i11.getId());
+        c11.setClaimantName("市民李四");
+        c11.setClaimantPhone("13800000003");
+        c11.setDamageType("车辆损失");
+        c11.setClaimAmount(new BigDecimal("3800"));
+        c11.setAccidentProof("车主称轮胎因井盖塌陷损坏；行车记录仪视频、交警证明、维修发票待核验");
+        c11.setStatus(Constants.CompStatus.FILED);
+        c11.setCreatedAt(i11.getCreatedAt().plusMinutes(20));
+        compensationRepo.save(c11);
+        pendingMaterials(c11);
+        // 上一事件（i1）赔付案件维修追踪 → 再次塌陷，上一轮维修单位/材料规格/验收人进入新责任判断
+        c1.setRepairTrackStatus(Constants.RepairTrack.RECOLLAPSED);
+        c1.setRepairTrackNote("同一井盖再次塌陷，新事件 " + i11.getCode()
+                + "；上一轮维修单位、材料规格、验收人纳入新的责任判断");
+        c1.setRepairTrackedAt(i11.getCreatedAt());
+        compensationRepo.save(c1);
     }
 
     private Incident base(String code, User reporter, String issueType, String address, String roadType,
@@ -356,7 +429,7 @@ public class DataSeeder implements CommandLineRunner {
         acceptanceRepo.save(a);
     }
 
-    private void compensation(Incident inc, String damageType, String claimAmount, String proof,
+    private CompensationCase compensation(Incident inc, String damageType, String claimAmount, String proof,
                               String analysis, String responsibility, int ownerRatio, int streetRatio,
                               String approved, String status, int decidedDaysAgo) {
         CompensationCase c = new CompensationCase();
@@ -378,7 +451,43 @@ public class DataSeeder implements CommandLineRunner {
         if (Constants.CompStatus.PAID.equals(status)) {
             c.setPaidAt(c.getDecidedAt().plusDays(1));
         }
-        compensationRepo.save(c);
+        return compensationRepo.save(c);
+    }
+
+    /** 立案时的五项待核验材料 */
+    private void pendingMaterials(CompensationCase c) {
+        for (String type : MATERIAL_TYPES) {
+            ClaimMaterial m = new ClaimMaterial();
+            m.setCaseId(c.getId());
+            m.setMaterialType(type);
+            materialRepo.save(m);
+        }
+    }
+
+    /** 历史已审核案件：五项材料均已核验通过 */
+    private void verifiedMaterials(CompensationCase c) {
+        for (String type : MATERIAL_TYPES) {
+            ClaimMaterial m = new ClaimMaterial();
+            m.setCaseId(c.getId());
+            m.setMaterialType(type);
+            m.setSubmitted(true);
+            m.setVerifyStatus(Constants.VerifyStatus.PASSED);
+            m.setVerifiedBy(comp.getId());
+            m.setVerifiedAt(c.getDecidedAt().minusHours(2));
+            m.setVerifyNote("核验通过");
+            m.setContent(switch (type) {
+                case Constants.MaterialType.ACCIDENT_TIME ->
+                        "索赔人主张事故时间：" + c.getAccidentTime().format(TF) + "（已与行车记录仪、交警证明交叉核对）";
+                case Constants.MaterialType.DASHCAM ->
+                        "行车记录仪视频片段：画面显示车辆经过事发井盖时颠簸/陷入";
+                case Constants.MaterialType.POLICE_CERT ->
+                        "公安交警事故认定书（原件拍照上传）";
+                case Constants.MaterialType.REPAIR_INVOICE ->
+                        "维修厂正式发票：金额与索赔金额核对一致";
+                default -> c.getPlatformSnapshot();
+            });
+            materialRepo.save(m);
+        }
     }
 
     private void cost(Incident inc, String emergency, String repair, String compAmount,

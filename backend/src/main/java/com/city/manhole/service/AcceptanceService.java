@@ -28,6 +28,7 @@ public class AcceptanceService {
     private final UserRepo userRepo;
     private final IncidentService incidentService;
     private final NotificationService notificationService;
+    private final CompensationService compensationService;
 
     @Transactional
     public Acceptance submit(Long incidentId, Boolean photoOk, Boolean locationOk,
@@ -59,6 +60,7 @@ public class AcceptanceService {
             inc.setStatus(Constants.IncidentStatus.ACCEPTED);
             incidentService.save(inc);
             createOrRefreshCostAllocation(inc, order);
+            compensationService.onAcceptancePassed(incidentId); // 赔付维修追踪 → 彻底完成
             notificationService.notifyRole(Constants.Role.ADMIN, inc.getId(),
                     "验收通过待费用复核 " + inc.getCode(), "请复核费用分摊并结案。");
             notificationService.notify(inc.getReporterId(), inc.getId(),

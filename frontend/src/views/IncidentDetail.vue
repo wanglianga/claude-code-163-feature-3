@@ -11,6 +11,9 @@
           <el-tag v-if="d.incident.responsibilityPending" type="danger" effect="dark" style="margin-left: 6px">
             责任待定
           </el-tag>
+          <el-tag v-if="d.incident.recollapse" type="danger" effect="dark" style="margin-left: 6px">
+            再次塌陷
+          </el-tag>
         </div>
         <div>
           <span class="text-muted">应急线：</span>
@@ -27,6 +30,36 @@
 
     <el-row :gutter="16">
       <el-col :xs="24" :md="15">
+        <!-- 再次塌陷追溯：上一轮维修单位、材料规格、验收人进入新的责任判断 -->
+        <el-card v-if="d.recollapseTrace" class="page-card recollapse-card">
+          <template #header>
+            <b>⚠ 同一井盖再次塌陷 —— 上一轮维修责任追溯</b>
+          </template>
+          <el-alert type="error" :closable="false" class="mb16"
+                    title="该井盖此前已完成维修并验收，本次再次塌陷；上一轮维修单位、材料规格、验收人纳入本次责任判断。" />
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="上一事件">
+              <el-link type="primary" @click="$router.push(`/incidents/${d.recollapseTrace.previousIncidentId}`)">
+                {{ d.recollapseTrace.previousCode }}
+              </el-link>
+              （{{ d.recollapseTrace.previousIssueType }}）
+            </el-descriptions-item>
+            <el-descriptions-item label="距上次维修">
+              <el-tag type="danger" size="small">
+                {{ d.recollapseTrace.daysSinceRepair != null ? d.recollapseTrace.daysSinceRepair + ' 天' : '-' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="上一轮维修单位">{{ d.recollapseTrace.repairTeam || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="材料规格">{{ d.recollapseTrace.coverSpec || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="验收人">{{ d.recollapseTrace.inspectorName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="验收时间">{{ fmtTime(d.recollapseTrace.acceptedAt) }}</el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <!-- 本事件之后发生的再次塌陷 -->
+        <el-alert v-if="d.followupRecollapse?.length" type="error" :closable="false" class="page-card"
+                  :title="`本事件维修后同一井盖再次塌陷：${d.followupRecollapse.map(f => f.code).join('、')}，本事件的维修单位、材料规格、验收人已进入新的责任判断。`" />
+
         <!-- 上报信息 -->
         <el-card class="page-card">
           <template #header><b>上报信息</b></template>
@@ -174,6 +207,19 @@
             <el-descriptions-item label="索赔金额">{{ money(d.compensation.claimAmount) }}</el-descriptions-item>
             <el-descriptions-item label="核定金额">{{ money(d.compensation.approvedAmount) }}</el-descriptions-item>
             <el-descriptions-item label="事故证明" :span="2">{{ d.compensation.accidentProof || '-' }}</el-descriptions-item>
+            <el-descriptions-item v-if="d.compensation.accidentTime" label="事故时间" :span="2">
+              {{ fmtTime(d.compensation.accidentTime) }}
+              <el-tag v-if="d.compensation.timeRelation" :type="TIME_RELATION[d.compensation.timeRelation]?.type"
+                      size="small" style="margin-left: 8px">
+                {{ TIME_RELATION[d.compensation.timeRelation]?.label }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item v-if="d.compensation.repairTrackStatus" label="维修追踪" :span="2">
+              <el-tag :type="REPAIR_TRACK[d.compensation.repairTrackStatus]?.type" size="small">
+                {{ REPAIR_TRACK[d.compensation.repairTrackStatus]?.label }}
+              </el-tag>
+              <span class="text-muted" style="margin-left: 8px">{{ d.compensation.repairTrackNote }}</span>
+            </el-descriptions-item>
             <el-descriptions-item v-if="d.compensation.analysis" label="责任分析" :span="2">
               {{ d.compensation.analysis }}
             </el-descriptions-item>
@@ -392,7 +438,7 @@ import {
 } from '../api'
 import {
   INCIDENT_STATUS, EMERGENCY_STATUS, OWNER_STATUS, REPAIR_STATUS, COMP_STATUS,
-  COST_STATUS, RESPONSIBILITY, dangerType, fmtTime, money
+  COST_STATUS, RESPONSIBILITY, TIME_RELATION, REPAIR_TRACK, dangerType, fmtTime, money
 } from '../utils/format'
 
 const route = useRoute()
@@ -521,3 +567,13 @@ onMounted(async () => {
   meta.value = await apiMeta()
 })
 </script>
+
+<style scoped>
+.recollapse-card {
+  border: 1px solid var(--el-color-danger);
+}
+.recollapse-card :deep(.el-card__header) {
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
+}
+</style>

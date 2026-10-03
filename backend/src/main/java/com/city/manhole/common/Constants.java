@@ -70,4 +70,34 @@ public final class Constants {
         public static final String SHARED = "SHARED";           // 多方分摊
         public static final String UNDETERMINED = "UNDETERMINED"; // 无法认定
     }
+
+    /** 赔付材料类型（赔付专员逐项核验） */
+    public static final class MaterialType {
+        public static final String ACCIDENT_TIME = "ACCIDENT_TIME";     // 事故时间
+        public static final String DASHCAM = "DASHCAM";                 // 行车记录仪
+        public static final String POLICE_CERT = "POLICE_CERT";         // 交警证明
+        public static final String REPAIR_INVOICE = "REPAIR_INVOICE";   // 维修发票
+        public static final String PLATFORM_STATUS = "PLATFORM_STATUS"; // 平台当时井盖状态
+    }
+
+    /** 材料核验状态 */
+    public static final class VerifyStatus {
+        public static final String PENDING = "PENDING";   // 待核验
+        public static final String PASSED = "PASSED";     // 核验通过
+        public static final String FAILED = "FAILED";     // 核验不通过
+    }
+
+    /** 事故时间与首次上报的关系（系统据事故时间自动判定） */
+    public static final class TimeRelation {
+        public static final String BEFORE_REPORT = "BEFORE_REPORT";                     // 事故在首次上报前：平台仅记录风险线索
+        public static final String AFTER_REPORT_UNSECURED = "AFTER_REPORT_UNSECURED";   // 上报后、围护完成前：关联值班处置时效与权属响应
+        public static final String AFTER_REPORT_SECURED = "AFTER_REPORT_SECURED";       // 围护完成后
+    }
+
+    /** 赔付后维修追踪状态（赔付审核通过后跟踪维修是否彻底完成） */
+    public static final class RepairTrack {
+        public static final String TRACKING = "TRACKING";       // 追踪中（维修未彻底完成）
+        public static final String COMPLETED = "COMPLETED";     // 维修已彻底完成（验收通过）
+        public static final String RECOLLAPSED = "RECOLLAPSED"; // 同一井盖再次塌陷
+    }
 }

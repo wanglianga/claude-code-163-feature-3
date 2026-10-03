@@ -81,6 +81,13 @@ public class Incident {
     @Column(nullable = false)
     private Boolean everPending = false;
 
+    /** 是否同一井盖再次塌陷（上报时按同地址/近距离已维修事件自动判定） */
+    @Column(nullable = false)
+    private Boolean recollapse = false;
+
+    /** 再次塌陷时关联的上一事件 id（其维修单位、材料规格、验收人进入新的责任判断） */
+    private Long previousIncidentId;
+
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
     private LocalDateTime closedAt;

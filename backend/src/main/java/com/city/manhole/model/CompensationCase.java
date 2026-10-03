@@ -41,6 +41,17 @@ public class CompensationCase {
     @Column(columnDefinition = "TEXT")
     private String accidentProof;
 
+    /** 车主/索赔人主张的事故时间 */
+    private LocalDateTime accidentTime;
+
+    /** 事故时间与首次上报的关系，见 Constants.TimeRelation（系统录入事故时间时自动判定） */
+    @Column(length = 32)
+    private String timeRelation;
+
+    /** 事故时刻平台状态快照（系统生成：上报/围护/权属/维修各时点与超时分析） */
+    @Column(columnDefinition = "TEXT")
+    private String platformSnapshot;
+
     /** 责任分析（上报时间、围护时效、权属确认、维修时长、事故证明综合判断） */
     @Column(columnDefinition = "TEXT")
     private String analysis;
@@ -62,6 +73,16 @@ public class CompensationCase {
     /** 见 Constants.CompStatus */
     @Column(nullable = false, length = 16)
     private String status;
+
+    /** 赔付后维修追踪状态，见 Constants.RepairTrack（核定通过后开始追踪） */
+    @Column(length = 16)
+    private String repairTrackStatus;
+
+    /** 维修追踪说明（如：验收通过 / 同一井盖再次塌陷关联新事件） */
+    @Column(columnDefinition = "TEXT")
+    private String repairTrackNote;
+
+    private LocalDateTime repairTrackedAt;
 
     private LocalDateTime decidedAt;
     private LocalDateTime paidAt;

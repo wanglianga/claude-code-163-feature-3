@@ -51,6 +51,32 @@ export const RESPONSIBILITY = {
   UNDETERMINED: '无法认定'
 }
 
+export const MATERIAL_TYPE = {
+  ACCIDENT_TIME: '事故时间',
+  DASHCAM: '行车记录仪',
+  POLICE_CERT: '交警证明',
+  REPAIR_INVOICE: '维修发票',
+  PLATFORM_STATUS: '平台当时井盖状态'
+}
+
+export const VERIFY_STATUS = {
+  PENDING: { label: '待核验', type: 'warning' },
+  PASSED: { label: '核验通过', type: 'success' },
+  FAILED: { label: '核验不通过', type: 'danger' }
+}
+
+export const TIME_RELATION = {
+  BEFORE_REPORT: { label: '事故在首次上报前', type: 'info' },
+  AFTER_REPORT_UNSECURED: { label: '上报后未围护期间', type: 'danger' },
+  AFTER_REPORT_SECURED: { label: '围护完成后', type: 'warning' }
+}
+
+export const REPAIR_TRACK = {
+  TRACKING: { label: '维修追踪中', type: 'warning' },
+  COMPLETED: { label: '维修彻底完成', type: 'success' },
+  RECOLLAPSED: { label: '再次塌陷', type: 'danger' }
+}
+
 export const dangerType = (level) => ({ 高: 'danger', 中: 'warning', 低: 'info' }[level] || 'info')
 
 export const money = (v) => `¥${Number(v || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`

@@ -29,6 +29,7 @@ public class IncidentService {
     private final CompensationRepo compensationRepo;
     private final CostAllocationRepo costRepo;
     private final NotificationService notificationService;
+    private final CompensationService compensationService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public static final List<String> ISSUE_TYPES = List.of("缺失", "松动", "异响", "塌陷");
@@ -64,24 +65,63 @@ public class IncidentService {
         inc.setOwnerStatus(Constants.OwnerStatus.UNCONFIRMED);
         incidentRepo.save(inc);
 
-        // 已造成人车损伤的，自动立赔付案件
+        // 同一井盖再次塌陷检测：同地址或近距离内已有完成维修的事件
+        detectRecollapse(inc);
+
+        // 已造成人车损伤的，自动立赔付案件（含五项待核验材料）
         if (inc.getHasDamage()) {
-            CompensationCase c = new CompensationCase();
-            c.setIncidentId(inc.getId());
-            c.setClaimantName(me.getName());
-            c.setClaimantPhone(me.getPhone());
-            c.setDamageType("待补充");
-            c.setAccidentProof(damageDesc);
-            c.setStatus(Constants.CompStatus.FILED);
-            compensationRepo.save(c);
-            notificationService.notifyRole(Constants.Role.COMPENSATOR, inc.getId(),
-                    "新赔付案件 " + inc.getCode(), "事件造成人车损伤，请关注赔付定责。");
+            compensationService.createCase(inc, me);
         }
         // 推送街道值班员做临时围护
         notificationService.notifyRole(Constants.Role.STREET_DUTY, inc.getId(),
                 "新上报井盖事件 " + inc.getCode(),
                 address + " 发生井盖" + issueType + "，危险程度：" + dangerLevel + "，请立即到场临时围护。");
         return inc;
+    }
+
+    /**
+     * 再次塌陷检测：同地址或约 100 米内，存在已完成维修（待验收/验收通过/已结案）的历史事件。
+     * 命中则标记本事件 recollapse，关联上一事件；上一事件赔付案件的维修追踪转为“再次塌陷”，
+     * 上一轮维修单位、材料规格、验收人进入新的责任判断。
+     */
+    private void detectRecollapse(Incident inc) {
+        List<Incident> repaired = incidentRepo.findByStatusInOrderByCreatedAtDesc(List.of(
+                Constants.IncidentStatus.REPAIRED,
+                Constants.IncidentStatus.ACCEPTED,
+                Constants.IncidentStatus.CLOSED));
+        Incident prev = repaired.stream()
+                .filter(p -> !p.getId().equals(inc.getId()))
+                .filter(p -> sameManhole(p, inc))
+                .findFirst().orElse(null);
+        if (prev == null) return;
+
+        inc.setRecollapse(true);
+        inc.setPreviousIncidentId(prev.getId());
+        incidentRepo.save(inc);
+
+        compensationService.onRecollapse(prev, inc);
+        String msg = "该井盖上一事件 " + prev.getCode() + " 已完成维修；"
+                + "上一轮维修单位、材料规格、验收人进入新的责任判断。";
+        notificationService.notifyRole(Constants.Role.COMPENSATOR, inc.getId(),
+                "同一井盖再次塌陷 " + inc.getCode(), msg);
+        notificationService.notifyRole(Constants.Role.ADMIN, inc.getId(),
+                "同一井盖再次塌陷 " + inc.getCode(), msg);
+    }
+
+    /** 同一井盖判定：地址一致，或经纬度距离不超过约 100 米 */
+    private boolean sameManhole(Incident a, Incident b) {
+        if (a.getAddress() != null && a.getAddress().trim().equals(b.getAddress().trim())) return true;
+        return distanceMeter(a, b) <= 100;
+    }
+
+    private double distanceMeter(Incident a, Incident b) {
+        double lat1 = Math.toRadians(a.getLatitude());
+        double lat2 = Math.toRadians(b.getLatitude());
+        double dLat = lat2 - lat1;
+        double dLng = Math.toRadians(b.getLongitude() - a.getLongitude());
+        double h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 2 * 6371000 * Math.asin(Math.sqrt(h));
     }
 
     private String genCode() {
@@ -132,6 +172,7 @@ public class IncidentService {
         m.put("emergencyStatus", inc.getEmergencyStatus());
         m.put("ownerStatus", inc.getOwnerStatus());
         m.put("responsibilityPending", inc.getResponsibilityPending());
+        m.put("recollapse", inc.getRecollapse());
         m.put("createdAt", inc.getCreatedAt());
         m.put("ownerOrg", inc.getOwnerId() == null ? null :
                 userRepo.findById(inc.getOwnerId()).map(User::getOrgName).orElse(null));
@@ -199,6 +240,22 @@ public class IncidentService {
 
         compensationRepo.findByIncidentId(id).ifPresent(c -> m.put("compensation", c));
         costRepo.findByIncidentId(id).ifPresent(c -> m.put("costAllocation", c));
+
+        // 再次塌陷：上一事件维修单位/材料规格/验收人追溯
+        if (Boolean.TRUE.equals(inc.getRecollapse())) {
+            m.put("recollapseTrace", compensationService.buildRecollapseTrace(inc));
+        }
+        // 本事件之后发生的再次塌陷事件
+        List<Map<String, Object>> followups = new ArrayList<>();
+        for (Incident f : incidentRepo.findByPreviousIncidentId(id)) {
+            Map<String, Object> fm = new LinkedHashMap<>();
+            fm.put("id", f.getId());
+            fm.put("code", f.getCode());
+            fm.put("status", f.getStatus());
+            fm.put("createdAt", f.getCreatedAt());
+            followups.add(fm);
+        }
+        if (!followups.isEmpty()) m.put("followupRecollapse", followups);
         return m;
     }
 

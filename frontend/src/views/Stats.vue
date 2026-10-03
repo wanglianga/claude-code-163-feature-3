@@ -152,6 +152,7 @@ const overviewCards = computed(() => [
   { label: '待应急处置', value: overview.value.pendingEmergency ?? '-', color: '#f56c6c' },
   { label: '责任待定', value: overview.value.pendingOwner ?? '-', color: '#f56c6c' },
   { label: '维修超时工单', value: overview.value.timeoutOrders ?? '-', color: '#e6a23c' },
+  { label: '再次塌陷事件', value: overview.value.recollapseCount ?? '-', color: '#d03050' },
   { label: '赔付总额', value: overview.value.totalCompensation != null ? money(overview.value.totalCompensation) : '-', color: '#b88230' },
   { label: '街道垫付应急费', value: overview.value.totalEmergencyCost != null ? money(overview.value.totalEmergencyCost) : '-', color: '#7b61ff' }
 ])
@@ -175,6 +176,9 @@ const suggestions = computed(() => {
   const over = emergency.value.filter(e => e.overLimit > 0)
   if (over.length) {
     s.push(`应急到场超时：${over.map(e => `${e.dangerLevel}危 ${e.overLimit} 次`).join('、')}，建议优化街道值班调度与夜间备勤。`)
+  }
+  if ((overview.value.recollapseCount || 0) > 0) {
+    s.push(`同一井盖再次塌陷 ${overview.value.recollapseCount} 起：上一轮维修单位、材料规格与验收人已纳入责任追溯，建议约谈相关维修单位并复核材料规格标准。`)
   }
   if (!s.length) s.push('各项指标正常，保持现有巡检与移交规则。')
   return s

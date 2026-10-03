@@ -1,6 +1,7 @@
 package com.city.manhole.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,9 @@ public final class Req {
     public record CompUpdateReq(String damageType, BigDecimal claimAmount, String accidentProof) {}
     public record CompDecideReq(String result, String responsibility, Integer ownerRatio,
                                 Integer streetRatio, BigDecimal approvedAmount, String analysis) {}
+    public record AccidentTimeReq(LocalDateTime accidentTime) {}
+    public record MaterialUpdateReq(String content, String fileUrl, Boolean submitted) {}
+    public record MaterialVerifyReq(String verifyStatus, String verifyNote) {}
 
     public record CostReviewReq(List<Map<String, Object>> allocations, String reviewNote) {}
 
