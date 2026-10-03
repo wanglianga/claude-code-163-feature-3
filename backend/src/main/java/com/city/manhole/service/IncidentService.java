@@ -28,6 +28,7 @@ public class IncidentService {
     private final AcceptanceRepo acceptanceRepo;
     private final CompensationRepo compensationRepo;
     private final CostAllocationRepo costRepo;
+    private final RepairFollowUpRepo followUpRepo;
     private final NotificationService notificationService;
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -81,7 +82,83 @@ public class IncidentService {
         notificationService.notifyRole(Constants.Role.STREET_DUTY, inc.getId(),
                 "新上报井盖事件 " + inc.getCode(),
                 address + " 发生井盖" + issueType + "，危险程度：" + dangerLevel + "，请立即到场临时围护。");
+        // 同一井盖再次塌陷：历史赔付维修追踪标记复发，上一轮维修单位/材料规格/验收人进入新的责任判断
+        markRecollapse(inc);
         return inc;
+    }
+
+    /** 同一井盖出现新事件时，将历史维修追踪标记为“再次塌陷”并提示赔付专员 */
+    private void markRecollapse(Incident inc) {
+        List<Incident> prev = sameManholeHistory(inc);
+        if (prev.isEmpty()) return;
+        List<Long> prevIds = prev.stream().map(Incident::getId).toList();
+        List<RepairFollowUp> fus = followUpRepo.findByIncidentIdInAndStatusIn(prevIds,
+                List.of(Constants.FollowUpStatus.TRACKING, Constants.FollowUpStatus.COMPLETED));
+        for (RepairFollowUp f : fus) {
+            f.setStatus(Constants.FollowUpStatus.RECOLLAPSED);
+            f.setLinkedIncidentId(inc.getId());
+            f.setCheckNote((f.getCheckNote() == null ? "" : f.getCheckNote() + "\n")
+                    + "同一井盖再次塌陷，关联新事件 " + inc.getCode()
+                    + "；上一轮维修单位、材料规格与验收人进入新的责任判断。");
+            f.setUpdatedAt(LocalDateTime.now());
+            followUpRepo.save(f);
+        }
+        boolean hasRepair = prev.stream().anyMatch(p -> repairOrderRepo.findByIncidentId(p.getId()).isPresent());
+        if (hasRepair || !fus.isEmpty()) {
+            notificationService.notifyRole(Constants.Role.COMPENSATOR, inc.getId(),
+                    "同一井盖再次塌陷 " + inc.getCode(),
+                    inc.getAddress() + " 存在历史维修/赔付记录，上一轮维修单位、材料规格与验收人已关联至本事件详情。");
+        }
+    }
+
+    /** 同一井盖判定：地址一致，或坐标相距约 20 米以内 */
+    private boolean sameManhole(Incident a, Incident b) {
+        if (a.getAddress() != null && b.getAddress() != null
+                && a.getAddress().trim().equals(b.getAddress().trim())) {
+            return true;
+        }
+        return Math.abs(a.getLatitude() - b.getLatitude()) <= 0.0002
+                && Math.abs(a.getLongitude() - b.getLongitude()) <= 0.0002;
+    }
+
+    /** 同一井盖的历史事件（早于当前事件，最多 5 条） */
+    public List<Incident> sameManholeHistory(Incident inc) {
+        return incidentRepo.findAll().stream()
+                .filter(o -> !o.getId().equals(inc.getId()))
+                .filter(o -> o.getCreatedAt().isBefore(inc.getCreatedAt()))
+                .filter(o -> sameManhole(o, inc))
+                .sorted(Comparator.comparing(Incident::getCreatedAt).reversed())
+                .limit(5)
+                .collect(Collectors.toList());
+    }
+
+    /** 同一井盖历史维修信息：上一轮维修单位、材料规格（井盖规格）、验收人、上次赔付责任 */
+    public List<Map<String, Object>> recurrencesOf(Incident inc) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Incident prev : sameManholeHistory(inc)) {
+            RepairOrder o = repairOrderRepo.findByIncidentId(prev.getId()).orElse(null);
+            if (o == null) continue;
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("incidentId", prev.getId());
+            m.put("code", prev.getCode());
+            m.put("issueType", prev.getIssueType());
+            m.put("status", prev.getStatus());
+            m.put("repairTeam", userRepo.findById(o.getTeamId()).map(User::getOrgName).orElse("-"));
+            m.put("coverSpec", o.getCoverSpec());
+            m.put("finishedAt", o.getFinishedAt());
+            Acceptance acc = acceptanceRepo.findByIncidentIdOrderByInspectedAtDesc(prev.getId()).stream()
+                    .filter(a -> "PASSED".equals(a.getResult())).findFirst().orElse(null);
+            if (acc != null) {
+                m.put("inspectorName", userRepo.findById(acc.getInspectorId()).map(User::getName).orElse("-"));
+                m.put("inspectedAt", acc.getInspectedAt());
+            }
+            compensationRepo.findByIncidentId(prev.getId()).ifPresent(c -> {
+                m.put("compensationResponsibility", c.getResponsibility());
+                m.put("compensationStatus", c.getStatus());
+            });
+            list.add(m);
+        }
+        return list;
     }
 
     private String genCode() {
@@ -199,6 +276,8 @@ public class IncidentService {
 
         compensationRepo.findByIncidentId(id).ifPresent(c -> m.put("compensation", c));
         costRepo.findByIncidentId(id).ifPresent(c -> m.put("costAllocation", c));
+        // 同一井盖历史维修（上一轮维修单位、材料规格、验收人）
+        m.put("recurrences", recurrencesOf(inc));
         return m;
     }
 

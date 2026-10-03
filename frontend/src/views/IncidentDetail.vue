@@ -57,6 +57,37 @@
           </div>
         </el-card>
 
+        <!-- 复发关联：同一井盖历史维修 -->
+        <el-card v-if="d.recurrences?.length" class="page-card">
+          <template #header>
+            <div class="flex-between">
+              <b>复发关联（同一井盖历史维修）</b>
+              <el-tag type="danger" effect="dark" size="small">同一井盖再次塌陷</el-tag>
+            </div>
+          </template>
+          <el-alert type="warning" :closable="false" class="mb16"
+                    title="该井盖存在历史维修记录，上一轮维修单位、材料规格与验收人进入本次责任判断。" />
+          <el-table :data="d.recurrences" size="small">
+            <el-table-column label="历史事件" width="150">
+              <template #default="{ row }">
+                <el-link type="primary" @click="$router.push(`/incidents/${row.incidentId}`)">{{ row.code }}</el-link>
+              </template>
+            </el-table-column>
+            <el-table-column prop="issueType" label="问题" width="70" />
+            <el-table-column prop="repairTeam" label="上一轮维修单位" min-width="130" />
+            <el-table-column prop="coverSpec" label="材料规格" min-width="150" />
+            <el-table-column prop="inspectorName" label="验收人" width="110" />
+            <el-table-column label="验收时间" width="140">
+              <template #default="{ row }">{{ fmtTime(row.inspectedAt) }}</template>
+            </el-table-column>
+            <el-table-column label="上次赔付责任" width="110">
+              <template #default="{ row }">
+                {{ row.compensationResponsibility ? RESPONSIBILITY[row.compensationResponsibility] : '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
         <!-- 应急处置记录 -->
         <el-card v-if="d.emergency" class="page-card">
           <template #header><b>应急处置记录（应急线）</b></template>

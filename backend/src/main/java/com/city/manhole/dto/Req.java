@@ -31,9 +31,14 @@ public final class Req {
     public record AcceptanceReq(Boolean photoOk, Boolean locationOk, Boolean flatnessOk,
                                 Boolean rollingTestOk, String result, String note) {}
 
-    public record CompUpdateReq(String damageType, BigDecimal claimAmount, String accidentProof) {}
+    public record CompUpdateReq(String damageType, BigDecimal claimAmount, String accidentProof,
+                                java.time.LocalDateTime accidentTime) {}
     public record CompDecideReq(String result, String responsibility, Integer ownerRatio,
                                 Integer streetRatio, BigDecimal approvedAmount, String analysis) {}
+
+    public record MaterialReq(String type, String title, String fileUrl, String content) {}
+    public record MaterialVerifyReq(String status, String verifyNote) {}
+    public record FollowUpCompleteReq(String checkNote) {}
 
     public record CostReviewReq(List<Map<String, Object>> allocations, String reviewNote) {}
 

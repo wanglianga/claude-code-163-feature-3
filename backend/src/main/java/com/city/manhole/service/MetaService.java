@@ -24,6 +24,8 @@ public class MetaService {
         m.put("measureTypes", EmergencyService.MEASURE_TYPES);
         m.put("coordUnits", List.of("燃气", "电力", "通信"));
         m.put("damageTypes", List.of("人身伤害", "车辆损失", "财产损失"));
+        m.put("materialTypes", List.of(Constants.MaterialType.DASHCAM, Constants.MaterialType.POLICE_CERT,
+                Constants.MaterialType.REPAIR_INVOICE, Constants.MaterialType.OTHER));
         m.put("ownerUnits", userRepo.findByRole(Constants.Role.OWNER_UNIT).stream()
                 .map(this::toOption).toList());
         m.put("repairTeams", userRepo.findByRole(Constants.Role.REPAIR_TEAM).stream()

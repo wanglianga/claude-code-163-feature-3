@@ -41,6 +41,17 @@ public class CompensationCase {
     @Column(columnDefinition = "TEXT")
     private String accidentProof;
 
+    /** 事故时间（索赔人主张，赔付专员核验后录入） */
+    private LocalDateTime accidentTime;
+
+    /** 时间线核验结论标记，见 Constants.TimelineFlag */
+    @Column(length = 32)
+    private String timelineFlag;
+
+    /** 系统生成的时间线核验分析（事故时间 vs 上报/围护/权属确认记录） */
+    @Column(columnDefinition = "TEXT")
+    private String timelineAnalysis;
+
     /** 责任分析（上报时间、围护时效、权属确认、维修时长、事故证明综合判断） */
     @Column(columnDefinition = "TEXT")
     private String analysis;

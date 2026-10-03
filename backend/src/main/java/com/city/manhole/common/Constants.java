@@ -70,4 +70,33 @@ public final class Constants {
         public static final String SHARED = "SHARED";           // 多方分摊
         public static final String UNDETERMINED = "UNDETERMINED"; // 无法认定
     }
+
+    /** 赔付材料类型 */
+    public static final class MaterialType {
+        public static final String DASHCAM = "DASHCAM";                 // 行车记录仪
+        public static final String POLICE_CERT = "POLICE_CERT";         // 交警证明
+        public static final String REPAIR_INVOICE = "REPAIR_INVOICE";   // 维修发票
+        public static final String OTHER = "OTHER";                     // 其他佐证
+    }
+
+    /** 赔付材料核验状态 */
+    public static final class MaterialStatus {
+        public static final String PENDING = "PENDING";     // 待核验
+        public static final String VERIFIED = "VERIFIED";   // 已核验
+        public static final String DOUBTFUL = "DOUBTFUL";   // 存疑
+    }
+
+    /** 事故时间线核验结论（事故时间 vs 平台记录） */
+    public static final class TimelineFlag {
+        public static final String BEFORE_REPORT = "BEFORE_REPORT";                 // 事故发生于首次上报前
+        public static final String AFTER_REPORT_UNSECURED = "AFTER_REPORT_UNSECURED"; // 上报后围护前
+        public static final String AFTER_SECURED = "AFTER_SECURED";                 // 围护完成后
+    }
+
+    /** 赔付后维修追踪状态 */
+    public static final class FollowUpStatus {
+        public static final String TRACKING = "TRACKING";         // 追踪中
+        public static final String COMPLETED = "COMPLETED";       // 维修彻底完成
+        public static final String RECOLLAPSED = "RECOLLAPSED";   // 同一井盖再次塌陷
+    }
 }

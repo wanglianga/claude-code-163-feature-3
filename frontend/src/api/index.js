@@ -67,9 +67,15 @@ export const apiAcceptance = (id, data) => http.post(`/api/incidents/${id}/accep
 
 // ---------- 赔付 ----------
 export const apiCompensations = () => http.get('/api/compensations')
+export const apiCompReview = (id) => http.get(`/api/compensations/${id}/review`)
 export const apiCompUpdate = (id, data) => http.put(`/api/compensations/${id}`, data)
 export const apiCompDecide = (id, data) => http.post(`/api/compensations/${id}/decide`, data)
 export const apiCompPay = (id) => http.post(`/api/compensations/${id}/pay`)
+export const apiCompAddMaterial = (id, data) => http.post(`/api/compensations/${id}/materials`, data)
+export const apiCompVerifyMaterial = (materialId, data) => http.post(`/api/compensations/materials/${materialId}/verify`, data)
+export const apiCompFollowUps = () => http.get('/api/compensations/follow-ups')
+export const apiCompFollowUpComplete = (id, data) => http.post(`/api/compensations/follow-ups/${id}/complete`, data)
+export const apiCompRiskClues = () => http.get('/api/compensations/risk-clues')
 
 // ---------- 费用分摊 ----------
 export const apiCostAllocations = () => http.get('/api/cost-allocations')
